@@ -1,0 +1,126 @@
+drop table rcsdepdrop5
+
+CREATE TABLE rcsdepdrop5
+    AS
+        SELECT
+            awb_prefix,
+            awb_number,
+            mse_sender,
+            doubled_cnt,
+            type,
+            awb_origin,
+            awb_destination,
+            awb_weight_code,
+            awb_weight,
+            awb_pieces_part,
+            awb_pieces_total,
+            flight,
+            flight_date,
+            fsd_datetime,
+            date_created,
+            remarks,
+            round((min_dep_create - min_rcs_fsdate_time) * 24*60) duration_min,
+            min_dep_create,
+            min_rcs_fsdate_time
+        FROM
+            (
+                SELECT
+                    awb_prefix,
+                    awb_number,
+                    type,
+                    awb_origin,
+                    awb_destination,
+                    awb_weight_code,
+                    awb_weight,
+                    awb_pieces_part,
+                    awb_pieces_total,
+                    carrier || flight_number flight,
+                    flight_date,
+                    fsd_datetime,
+                    date_created,
+                    remarks_1 || remarks_2 remarks,
+                    (
+                        SELECT
+                            MIN(fsd_datetime)
+                        FROM
+                            lin_awb_statussen
+                        WHERE
+                            awb_number = t.awb_number
+                            AND awb_prefix = t.awb_prefix
+                            AND type = 'RCS'
+                    ) min_rcs_fsdate_time,
+                    (
+                        SELECT
+                            MIN(date_created)
+                        FROM
+                            lin_awb_statussen
+                        WHERE
+                            awb_number = t.awb_number
+                            AND awb_prefix = t.awb_prefix
+                            AND type = 'DEP'
+                    ) min_dep_create,
+                    (
+                        SELECT
+                            COUNT(DISTINCT awb_prefix)
+                        FROM
+                            lin_awb_statussen
+                        WHERE
+                            awb_number = t.awb_number
+                            AND awb_prefix <> t.awb_prefix
+                            AND date_created >= TO_DATE('01.11.2019', 'dd.mm.yyyy')
+                            AND date_created < TO_DATE('01.02.2020', 'dd.mm.yyyy')
+                             AND type IN ('DEP', 'RCS')
+                    ) doubled_cnt,
+                    (select mse_sender from lin_messages where mse_id=t.msg_id) mse_sender
+                FROM
+                    lin_awb_statussen t
+                WHERE
+                    t.date_created >= TO_DATE('01.11.2019', 'dd.mm.yyyy')
+                    AND t.date_created < TO_DATE('01.02.2020', 'dd.mm.yyyy')
+                    AND type IN (
+                        'DEP',
+                        'RCS'
+                    )
+                ORDER BY
+                    awb_number,
+                    date_created
+            )
+            
+            
+             select trunc(df/60) || 'H ' || trunc(mod(df,60)) || 'M' from (select (to_date('01.12.2019 23:30','dd.mm.yyyy hh24:mi')-to_date('01.12.2019 20:40','dd.mm.yyyy hh24:mi'))*24*60 df from dual)
+            
+            select mse_sender from lin_messages where mse_id=msg_id
+            
+            select * from lin_awb_statussen where awb_number='23131334'
+            
+            select * from rcsdepdrop6 where awb_number='23131334'
+            
+            select 1551.7 + 517.3 from dual
+            
+            074-23131334
+            
+            select * from gv$sql where lower(sql_fulltext) like '%select%mse_sender from%lin_messages%'
+
+drop table rcsdepdrop6
+create table rcsdepdrop6 as select t.*, 
+(select count(distinct awb_prefix) from rcsdepdrop5 
+where awb_number = t.awb_number and awb_prefix <> t.awb_prefix) awb_prefix_count  
+from rcsdepdrop5 t
+
+create index idxdrp5 on  rcsdepdrop5(awb_number)
+
+update table rcsdepdrop6 set 
+
+alter table rcsdepdrop6 add duration varchar2(100);
+
+alter table rcsdepdrop6 drop column duration_min
+
+update rcsdepdrop6 set duration = trunc(duration_min/60) || 'H ' || trunc(mod(duration_min,60)) || 'M' where duration_min is not null
+
+select *  from rcsdepdrop6 where  date_created >= to_date('15.11.2019','dd.mm.yyyy') and date_created < to_date('01.12.2019','dd.mm.yyyy') and
+mse_sender in ('KLM', 'AVP', 'AGS','SCS','WFS') 
+
+
+
+select 1551.7 + 517.3 from dual
+
