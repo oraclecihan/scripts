@@ -1,0 +1,149 @@
+create table tbl_acn_report as 
+select case
+when substr(flight_classification,1,1) in ('1','2','7')
+then 'FLIGHT'
+when substr(flight_classification,1,1) in ('3','4','5','6')
+then 'TRUCK'
+else 'UNKNOWN'
+end  Truck_Flight, r.* from (
+SELECT
+case
+when exists (select 1
+from    lin_flight_manifests fmt
+,       lin_flights          flt
+where   fmt.mnt_id = mnt.mnt_id
+and     fmt.flt_id = flt.flt_id
+and     flt.flt_ramp <> flt.flt_cas_code
+)
+then '1. Linked flight'
+when EXISTS (SELECT 'x'
+FROM   LINALL.lin_countries lco
+,      LINALL.lin_airports lai
+WHERE  lco.cty_code             = lai.apt_cty_code
+AND    ((mnt.mnt_loc_unloading = 'AMS'
+and lai.apt_ulc_locationcode = substr(mnt.mnt_un_loc_loading,3,3)
+and lai.apt_ulc_countrycode  = substr(mnt.mnt_un_loc_loading,1,2)
+) or
+(mnt.mnt_loc_loading = 'AMS'
+and lai.apt_ulc_locationcode = substr(mnt.mnt_un_loc_unloading,3,3)
+and lai.apt_ulc_countrycode  = substr(mnt.mnt_un_loc_unloading,1,2)
+)
+)
+AND    lco.cty_truck_domain_spl = 'N'
+)
+then '2. Loading loc NOT in truck domain (country-setting)'
+when exists (select *
+from   cgn_ciss.ciss_trucking tr
+where  TR.CARRIER_CODE       = mnt.mnt_Carrier_Code
+and    ((regexp_like (substr(mnt.mnt_flight_number,5,1), '[A-Z]')
+and substr(mnt.mnt_flight_number,1,4) between substr(tr.flight_number_from,1,4) and   substr(tr.flight_number_till,1,4)
+and substr(mnt.mnt_flight_number,5,1) between substr(tr.flight_number_from,5,1) and   substr(tr.flight_number_till,5,1)
+)
+or
+(not regexp_like (substr(mnt.mnt_flight_number,5,1), '[A-Z]')
+and mnt.mnt_flight_number between tr.flight_number_from and tr.flight_number_till
+)
+)
+)
+then '3. In trucking ranges'
+when (trim(replace(mnt.mnt_aircraft_registration,'-','')) = 'TRUCK'
+)
+then '4. acreg is truck'
+when exists (select 1
+from   LINALL.lin_flight_manifests fmt
+,      LINALL.lin_flights         flt
+where  fmt.mnt_id = mnt.mnt_id
+and    fmt.flt_id = flt.flt_id
+and    flt.flt_ramp = flt.flt_cas_code
+)
+then '5. Linked truck flight'
+when flt_unique_call_ref is null then
+ '6. Truck'
+else
+'7. unknown'
+end flight_classification,
+(select description from lin_flight_status where status_code=mnt.flt_src_ind_last_estimate) flt_status,
+mnt.* from acn_report mnt) r where mnt_departure_date > sysdate-30 and flt_airport_of_report not in ('EIN','MST','RTM')  order by mnt_id asc
+
+
+=================== SQL SERVER
+
+
+DROP TABLE dwh_dm.TBL_ACN_REPORT
+
+select count(*) from dwh_dm.TBL_ACN_REPORT
+
+ CREATE TABLE dwh_dm.TBL_ACN_REPORT
+   (	"TRUCK_FLIGHT" VARCHAR(7), 
+	"FLIGHT_CLASSIFICATION" VARCHAR(52), 
+	"FLT_STATUS" VARCHAR(255), 
+	"MNT_CARRIER_CODE" VARCHAR(3 ), 
+	"MNT_FLIGHT_NUMBER" VARCHAR(5 ), 
+	"MNT_DEPARTURE_DATE" datetime2, 
+	"FLT_SCHEDULED_DATE" datetime2, 
+		"CSY_LOC_ORIGIN" VARCHAR(3 ), 
+	"CSY_LOC_DESTINATION" VARCHAR(3 ), 
+	"MNT_LOC_LOADING" VARCHAR(3 ), 
+	"MNT_LOC_UNLOADING" VARCHAR(3 ),
+	"CSY_EU_IND_ORIGIN"  VARCHAR(1), 
+	"CSY_EU_IND_DEST"VARCHAR(1), 
+	"MNT_EU_IND_ORIGIN" VARCHAR(1), 
+	"MNT_EU_IND_DEST" VARCHAR(1), 
+	"MNT_UN_LOC_LOADING" VARCHAR(5 ), 
+	"MNT_UN_LOC_UNLOADING" VARCHAR(5 ), 
+	"MNT_ID"  VARCHAR(10), 
+	"MOVEMENTS" VARCHAR(25), 
+	"MNT_AIRCRAFT_REGISTRATION" VARCHAR(10), 
+	"DOUBLE_AWB" VARCHAR(3), 
+	"SUM_WEIGHT"  VARCHAR(10), 
+	"NUM_OF_PIECES"  VARCHAR(10), 
+	"FLT_UNIQUE_CALL_REF" VARCHAR(50), 
+	"FLT_ID"  VARCHAR(10), 
+	"FLT_UN_AIRPORT_OF_REPORT" VARCHAR(5), 
+	"FLT_RAMP" VARCHAR(3 ), 
+	"FLT_AIRPORT_OF_REPORT" VARCHAR(3), 
+	"FLT_SRC_IND_LAST_ESTIMATE" VARCHAR(50)
+   ) 
+
+   delete from dwh_dm.TBL_ACN_REPORT;
+   commit;
+
+   drop table dwh_dm.TBL_ACN_REPORT2
+
+    select    substring(TRUCK_FLIGHT,1,2) as TRUCK_FLIGHT, FLIGHT_CLASSIFICATION, FLT_STATUS,MNT_CARRIER_CODE,MNT_FLIGHT_NUMBER,	
+	FORMAT (MNT_DEPARTURE_DATE, 'dd/MM/yyyy') as MNT_DEPARTURE_DATE,
+	MNT_DEPARTURE_DATE as mnt_org_format,
+	FLT_SCHEDULED_DATE, CSY_LOC_ORIGIN, CSY_LOC_DESTINATION, MNT_LOC_LOADING, MNT_LOC_UNLOADING,
+	CSY_EU_IND_ORIGIN, CSY_EU_IND_DEST, MNT_EU_IND_ORIGIN,MNT_EU_IND_DEST,MNT_UN_LOC_LOADING,MNT_UN_LOC_UNLOADING, 
+	MNT_ID,MOVEMENTS, MNT_AIRCRAFT_REGISTRATION, DOUBLE_AWB,FLT_UNIQUE_CALL_REF, FLT_ID, FLT_UN_AIRPORT_OF_REPORT, 
+	FLT_RAMP,FLT_AIRPORT_OF_REPORT, FLT_SRC_IND_LAST_ESTIMATE, cast(sum_weight AS decimal(18,2))/1000 sum_weight, cast((NUM_OF_PIECES) AS DECIMAL(18)) NUM_OF_PIECES,  
+	case when mnt_carrier_code in ('RU', 'CV', 'MP', '5Y', 'QY', '5C', 'TWG', 'K4', 'V1', '7L', 'KZ','CK','KD') then 'F'
+		else isnull(ac3.flight_nature,'P')  end FLIGHT_NATURE into dwh_dm.TBL_ACN_REPORT2 from dwh_dm.TBL_ACN_REPORT acn
+   left join [dwh_dm].[DM_D_AIRCRAFTS3] ac3
+on (ac3.prefix = acn.mnt_CARRIER_CODE
+    and ac3.flightnr = acn.mnt_FLIGHT_NUMBER	
+   ) where acn.movements not in ('EXPORT_NILL','NOT APPLICABLE','INSIDE_EU_NILL','IMPORT_NILL');
+
+
+
+   drop table dwh_dm.TBL_ACN_REPORT2
+
+   (select mnt_carrier_code, sum(cast((sum_weight) AS DECIMAL(18)) ) from dwh_dm.TBL_ACN_REPORT2
+   group by mnt_carrier_code order by 2 desc) 
+
+
+ mnt_carrier_code	(No column name)
+RU	13294479
+QR	11005385
+KL	9783509
+MP	6471079
+EK	5449278
+SQ	4339295
+CZ	3358495
+UA	2575581
+KE	2381554
+CV	2257264
+   
+
+   select cast((sum_weight) AS DECIMAL(18)) from dwh_dm.TBL_ACN_REPORT2
+
