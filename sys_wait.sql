@@ -1,0 +1,45 @@
+ col event for a50
+ break on inst_id skip 1
+ SELECT inst_id,
+       SYSDATE,
+       event,
+       COUNT (*)
+  FROM gV$SESSION_WAIT
+ WHERE event NOT IN
+          ('SQL*Net message to client',
+           'LGWR worker group idle',
+           'heartbeat redo informer',
+           'SQL*Net more data to client',
+           'class slave wait',
+           'rdbms ipc message',
+           'jobq slave wait',
+           'PX Deq: Execution Msg',
+           'wait for unread message on broadcast channel',
+           'ges remote message',
+           'CGS wait for IPC msg',
+           'pipe get',
+           'SQL*Net message from client',
+           'PL/SQL lock timer',
+           'DIAG idle wait',
+           'AQPC idle',
+           'virtual circuit next request',
+           'gcs remote message',
+           'REPL Capture/Apply: RAC AQ qmn coordinator',
+           'lreg timer',
+           'Streams AQ: load balancer idle' ,
+           'PING',
+           'pmon timer',
+           'smon timer',
+           'wakeup time manager',
+           'VKRM Idle',
+           'GCR sleep',
+           'EMON slave idle wait',
+           'ASM background timer',
+           'VKTM Logical Idle Wait',
+           'Streams AQ: qmn slave idle wait',
+           'Streams AQ: waiting for time management or cleanup tasks',
+           'Streams AQ: emn coordinator idle wait',
+           'Space Manager: slave idle wait',
+           'Streams AQ: qmn coordinator idle wait')
+GROUP BY inst_id, event
+ORDER BY inst_id, COUNT (*) DESC;
